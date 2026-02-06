@@ -3,7 +3,6 @@ import User from "../models/user.js"
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { access } from "fs";
 
 dotenv.config();
 
@@ -53,42 +52,40 @@ router.post('/login', async (req, res) => {
             const accessToken = jwt.sign({ userId}, SECRET, { expiresIn: '15m'});
             const refreshToken = jwt.sign({ userId}, REFRESH_SECRET, { expiresIn: '7d'});
             user.refreshTokens.push(refreshToken);
-            user.save();
+            await user.save();
 
 
             return res.json({ accessToken, refreshToken});
     });
 
     router.post('/refresh', async (req, res) => {
-        const freshToken = req.body.refreshToken;
-        if (!freshToken) {
-            return res.status(401).json({ message: "Non autorisé."})
+        const refreshToken = req.body.refreshToken;
+        if (!refreshToken) {
+            return res.status(401).json({ message: "Non autorisé." });
         }
+    
         try {
-        const payloadFreshToken = jwt.verify(freshToken, REFRESH_SECRET);
-        const userId = payloadFreshToken.userId;
-
-        const user = await User.findOne({ _id: userId, refreshTokens: freshToken });
-        if (!user) {
-            return res.status(401).json({ message: "Token invalide ou révoqué." });
+            const payload = jwt.verify(refreshToken, REFRESH_SECRET);
+            const userId = payload.userId;
+    
+            const user = await User.findOne({ _id: userId, refreshTokens: refreshToken });
+            if (!user) {
+                return res.status(401).json({ message: "Token invalide ou révoqué." });
+            }
+    
+            user.refreshTokens = user.refreshTokens.filter(token => token !== refreshToken);
+    
+            const newRefreshToken = jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: '7d' });
+            user.refreshTokens.push(newRefreshToken);
+            await user.save();
+    
+            const newAccessToken = jwt.sign({ userId }, SECRET, { expiresIn: '15m' });
+    
+            return res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
+        } catch (err) {
+            return res.status(401).json({ message: "Token invalide." });
         }
-
-        user.refreshTokens = user.refreshTokens.filter(token => token !== freshToken);
-
-        const newRefreshToken = jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: '7d' });
-        user.refreshTokens.push(newRefreshToken);
-
-        await user.save();
-
-        const newAccessToken = jwt.sign({ userId}, SECRET, { expiresIn: '15m'});
-        
-        return res.json({ accessToken: newAccessToken, freshToken: newRefreshToken});
-        }
-        catch(err) {
-            return res.status(401).json({ message: "Token invalide."});
-        }
-
-
-    })
+    });
+    
 
     export default router;
