@@ -3,6 +3,7 @@ import User from "../models/user.js"
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { access } from "fs";
 
 dotenv.config();
 
@@ -54,5 +55,21 @@ router.post('/login', async (req, res) => {
 
             return res.json({ accessToken, refreshToken});
     });
+
+    router.post('/refresh', async (req, res) => {
+        const freshToken = req.body.refreshToken;
+        if (!freshToken) {
+            return res.status(401).json({ message: "Non autorisé."})
+        }
+        try {
+        const payloadFreshToken = jwt.verify(freshToken, REFRESH_SECRET);
+        const userId = payloadFreshToken.userId;
+        const newAccessToken = jwt.sign({ userId}, SECRET, { expiresIn: '15m'});
+        return res.json({ accessToken: newAccessToken});
+        }
+        catch(err) {
+            return res.status(401).json({ message: "Token invalide."});
+        }
+    })
 
     export default router;
