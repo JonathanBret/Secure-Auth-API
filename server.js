@@ -4,11 +4,14 @@ import router from './routes/Auth.js';
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import cors from "cors"
 
 dotenv.config();
 
 const app = express();
+
 app.use(express.json());
+app.use(cors());
 
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("MongoDB connected"))
@@ -31,7 +34,7 @@ app.get("/dashboard", authMiddleware, (req, res) => {
 
 app.use("/auth", router);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
